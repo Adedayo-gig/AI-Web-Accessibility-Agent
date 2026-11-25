@@ -1,0 +1,118 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Accessibility Test Shop</title>
+</head>
+
+<body>
+
+    <h1>AI Accessibility Test Shop</h1>
+
+    <div class="product">
+
+        <h2>Black Running Shoe</h2>
+
+        <p class="price">₦12,000</p>
+
+        <label for="size1">Select Size:</label>
+
+        <select class="size" id="size1" aria-label="Select shoe size">
+            <option value="">Choose size</option>
+            <option value="40">40</option>
+            <option value="41">41</option>
+            <option value="42">42</option>
+            <option value="43">43</option>
+            <option value="44">44</option>
+            <option value="45">45</option>
+        </select>
+
+        <button class="add-cart" onclick="addToCart(this)">
+            Add to Cart
+        </button>
+
+    </div>
+
+    <hr>
+
+    <div class="product">
+
+        <h2>White Sports Shoe</h2>
+
+        <p class="price">₦10,000</p>
+
+        <label for="size2">Select Size:</label>
+
+        <select class="size" id="size2" aria-label="Select shoe size">
+            <option value="">Choose size</option>
+            <option value="40">40</option>
+            <option value="41">41</option>
+            <option value="42">42</option>
+            <option value="43">43</option>
+        </select>
+
+        <button class="add-cart" onclick="addToCart(this)">
+            Add to Cart
+        </button>
+
+    </div>
+
+    <hr>
+
+    <div class="product">
+
+        <h2>Black Leather Shoe</h2>
+
+        <p class="price">₦20,000</p>
+
+        <label for="size3">Select Size:</label>
+
+        <select class="size" id="size3" aria-label="Select shoe size">
+            <option value="">Choose size</option>
+            <option value="42">42</option>
+            <option value="43">43</option>
+            <option value="44">44</option>
+            <option value="45">45</option>
+        </select>
+
+        <button class="add-cart" onclick="addToCart(this)">
+            Add to Cart
+        </button>
+
+    </div>
+
+    <p id="cart-status" role="status" aria-live="polite">
+        Cart is empty.
+    </p>
+
+    <script>
+
+        function addToCart(button) {
+
+            var product = button.closest(".product");
+
+            var name = product.querySelector("h2").innerText;
+
+            var size = product.querySelector(".size").value;
+
+            if (size === "") {
+
+                document.getElementById("cart-status").innerText =
+                    "Please select a size first.";
+
+            } else {
+
+                document.getElementById("cart-status").innerText =
+                    name + ", Size " + size + " added to cart.";
+
+            }
+
+        }
+
+    </script>
+
+</body>
+</html>

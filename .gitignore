@@ -1,0 +1,6 @@
+.env
+.qodo/
+__pycache__/
+*.pyc
+vosk-model-small-en-us-0.15/
+*.wav

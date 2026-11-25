@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Accessibility Test Shop</title>
+</head>
+
+<body>
+
+    <h1>AI Accessibility Test Shop</h1>
+
+    <h2>Black Running Shoe</h2>
+
+    <p>Price: ₦12,000</p>
+
+    <label for="size">Select Size:</label>
+
+    <select id="size">
+        <option value="">Choose size</option>
+        <option value="40">40</option>
+        <option value="41">41</option>
+        <option value="42">42</option>
+        <option value="43">43</option>
+        <option value="44">44</option>
+        <option value="45">45</option>
+    </select>
+
+    <br><br>
+
+    <button id="add-to-cart">
+        Add to Cart
+    </button>
+
+    <p id="cart-status">
+        Cart is empty.
+    </p>
+
+
+    <script>
+
+        document.getElementById("add-to-cart").addEventListener(
+            "click",
+            function() {
+
+                const size =
+                    document.getElementById("size").value;
+
+                if (size === "") {
+
+                    document.getElementById("cart-status").innerText =
+                        "Please select a size first.";
+
+                } else {
+
+                    document.getElementById("cart-status").innerText =
+                        "Black Running Shoe, Size " +
+                        size +
+                        " added to cart.";
+
+                }
+
+            }
+        );
+
+    </script>
+
+</body>
+</html>
