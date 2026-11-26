@@ -1,8 +1,12 @@
 
-from flask import Flask, render_template_string, request, jsonify
+from flask import (
+    Flask, render_template_string, request,
+    jsonify, session
+)
 import re
 
 app = Flask(__name__)
+app.secret_key = "ai-web-agent-demo-secret-key"
 
 # =====================================
 # PRODUCT DATABASE
@@ -31,29 +35,222 @@ products = [
 
 
 # =====================================
-# PRODUCT QUESTION ANSWERING
+# CART FUNCTIONS
+# =====================================
+
+def get_cart():
+    return session.get("cart", [])
+
+
+def cart_summary():
+
+    cart = get_cart()
+
+    if not cart:
+        return "Your shopping cart is empty."
+
+    total = 0
+
+    answer = "Your shopping cart contains: "
+
+    for item in cart:
+
+        subtotal = item["price"] * item["quantity"]
+
+        total += subtotal
+
+        size_text = (
+            f", size {item['size']}"
+            if item.get("size")
+            else ""
+        )
+
+        answer += (
+            f"{item['name']}{size_text}, "
+            f"quantity {item['quantity']}, "
+            f"price {item['price']:,} naira. "
+        )
+
+    answer += f"Your total is {total:,} naira."
+
+    return answer
+
+
+def add_to_cart(product, requested_size=None):
+
+    cart = get_cart()
+
+    for item in cart:
+
+        if (
+            item["name"] == product["name"]
+            and item.get("size") == requested_size
+        ):
+
+            item["quantity"] += 1
+
+            session["cart"] = cart
+
+            session.modified = True
+
+            return (
+                f"Success! Another {product['name']} "
+                f"has been added to your cart. "
+                f"Quantity is now {item['quantity']}."
+            )
+
+    cart.append({
+        "name": product["name"],
+        "price": product["price"],
+        "size": requested_size,
+        "quantity": 1
+    })
+
+    session["cart"] = cart
+
+    session.modified = True
+
+    size_text = (
+        f", size {requested_size}"
+        if requested_size
+        else ""
+    )
+
+    return (
+        f"Success! {product['name']}{size_text} "
+        f"has been added to your shopping cart."
+    )
+
+
+def remove_from_cart(product_name):
+
+    cart = get_cart()
+
+    for item in cart:
+
+        if product_name.lower() in item["name"].lower():
+
+            cart.remove(item)
+
+            session["cart"] = cart
+
+            session.modified = True
+
+            return (
+                f"{item['name']} has been removed "
+                f"from your cart."
+            )
+
+    return "I could not find that product in your cart."
+
+
+# =====================================
+# REQUEST UNDERSTANDING
 # =====================================
 
 def answer_question(question):
 
     question = question.lower().strip()
 
+    # Correct common typing mistakes
+    corrections = {
+        "sheo": "shoe",
+        "shoo": "shoe",
+        "shose": "shoes",
+        "runnig": "running",
+        "runing": "running",
+        "lether": "leather",
+        "blak": "black",
+        "wite": "white"
+    }
+
+    for wrong, correct in corrections.items():
+        question = re.sub(
+            r"\b" + wrong + r"\b",
+            correct,
+            question
+        )
+
     if not question:
-        return "Please enter a question."
+        return "Please enter a request."
 
-    # Count products
-    if "how many" in question or "number of products" in question:
-        return f"There are {len(products)} products available."
+    # ---------------------------------
+    # CLEAR CART
+    # ---------------------------------
 
-    # List all products
+    if (
+        "clear cart" in question
+        or "empty cart" in question
+        or "delete my cart" in question
+    ):
+
+        session["cart"] = []
+
+        session.modified = True
+
+        return "Your shopping cart has been cleared."
+
+    # ---------------------------------
+    # REMOVE PRODUCT
+    # ---------------------------------
+
+    if "remove" in question and "cart" in question:
+
+        for product in products:
+
+            if product["name"].lower() in question:
+
+                return remove_from_cart(product["name"])
+
+        return (
+            "Please mention the full product name "
+            "you want to remove."
+        )
+
+    # ---------------------------------
+    # VIEW CART
+    # ---------------------------------
+
+    cart_words = [
+        "show", "see", "view", "check",
+        "display", "what", "list"
+    ]
+
+    if (
+        "cart" in question
+        and any(word in question.split() for word in cart_words)
+    ):
+
+        return cart_summary()
+
+    # ---------------------------------
+    # COUNT PRODUCTS
+    # ---------------------------------
+
+    if (
+        "how many" in question
+        or "number of products" in question
+    ):
+
+        return (
+            f"There are {len(products)} "
+            f"products available."
+        )
+
+    # ---------------------------------
+    # LIST ALL PRODUCTS
+    # ---------------------------------
+
     if (
         "list all" in question
         or "show all products" in question
         or "what products" in question
     ):
+
         answer = "The available products are: "
 
         for product in products:
+
             answer += (
                 f"{product['name']}, "
                 f"priced at {product['price']:,} naira. "
@@ -61,36 +258,71 @@ def answer_question(question):
 
         return answer
 
-    # Cheapest product
+    # ---------------------------------
+    # CHEAPEST PRODUCT
+    # ---------------------------------
+
     if any(word in question for word in [
-        "cheapest", "lowest price", "lowest cost"
+        "cheapest",
+        "lowest price",
+        "lowest cost"
     ]):
 
-        cheapest = min(products, key=lambda p: p["price"])
+        cheapest = min(
+            products,
+            key=lambda p: p["price"]
+        )
 
         return (
-            f"The cheapest product is {cheapest['name']}, "
+            f"The cheapest product is "
+            f"{cheapest['name']}, "
             f"priced at {cheapest['price']:,} naira."
         )
 
-    # Product search
+    # ---------------------------------
+    # PRODUCT SEARCH
+    # ---------------------------------
+
     product_keywords = [
         "shoe", "shoes", "black", "white",
-        "product", "products", "sneaker", "sneakers"
+        "product", "products", "sneaker",
+        "sneakers", "running", "leather",
+        "sports"
     ]
 
-    if any(word in question for word in product_keywords):
+    if any(word in question.split() for word in product_keywords):
 
         matches = products.copy()
 
+        # Identify exact product type
+        if "running" in question:
+            matches = [
+                p for p in matches
+                if p["name"] == "Black Running Shoe"
+            ]
+
+        elif "leather" in question:
+            matches = [
+                p for p in matches
+                if p["name"] == "Black Leather Shoe"
+            ]
+
+        elif "sports" in question:
+            matches = [
+                p for p in matches
+                if p["name"] == "White Sports Shoe"
+            ]
+
         # Filter by colour
-        if "black" in question:
+        if "black" in question.split():
+
             matches = [
                 p for p in matches
                 if p["colour"] == "black"
             ]
 
-        elif "white" in question:
+        elif "white" in question.split():
+
             matches = [
                 p for p in matches
                 if p["colour"] == "white"
@@ -107,7 +339,8 @@ def answer_question(question):
         if size_match:
 
             requested_size = (
-                size_match.group(1) or size_match.group(2)
+                size_match.group(1)
+                or size_match.group(2)
             )
 
             matches = [
@@ -115,29 +348,69 @@ def answer_question(question):
                 if requested_size in p["sizes"]
             ]
 
-        # Filter by maximum price
+        # Filter by price
         price_match = re.search(
             r"(?:below|under|less than|up to|"
-            r"not more than|max(?:imum)?(?: price)?)"
+            r"not more than|max(?:imum)?(?: price)?|"
+            r"of|at|for)"
             r"\s*₦?\s*([\d,]+)",
             question
         )
 
         if price_match:
 
-            maximum_price = int(
+            requested_price = int(
                 price_match.group(1).replace(",", "")
             )
 
-            matches = [
-                p for p in matches
-                if p["price"] <= maximum_price
-            ]
+            if any(term in question for term in [
+                "below", "under", "less than",
+                "up to", "not more than",
+                "maximum", "max"
+            ]):
+
+                matches = [
+                    p for p in matches
+                    if p["price"] <= requested_price
+                ]
+
+            else:
+
+                matches = [
+                    p for p in matches
+                    if p["price"] == requested_price
+                ]
+
+        # Detect add-to-cart request
+        add_requested = (
+            "add" in question and "cart" in question
+        ) or "buy it" in question
 
         # Return matching products
         if matches:
 
-            answer = "I found the following matching products: "
+            if add_requested:
+
+                if len(matches) > 1:
+
+                    names = ", ".join(
+                        p["name"] for p in matches
+                    )
+
+                    return (
+                        f"I found multiple matching products: "
+                        f"{names}. Please specify which one "
+                        "you want to add to your cart."
+                    )
+
+                return add_to_cart(
+                    matches[0],
+                    requested_size
+                )
+
+            answer = (
+                "I found the following matching products: "
+            )
 
             for product in matches:
 
@@ -147,11 +420,16 @@ def answer_question(question):
                 )
 
                 if requested_size:
+
                     answer += (
                         f"Size {requested_size} is available. "
                     )
 
-                elif "size" in question or "sizes" in question:
+                elif (
+                    "size" in question
+                    or "sizes" in question
+                ):
+
                     answer += (
                         "Available sizes are "
                         + ", ".join(product["sizes"])
@@ -166,9 +444,9 @@ def answer_question(question):
         )
 
     return (
-        "Sorry, I do not understand that question yet. "
+        "Sorry, I do not understand that request yet. "
         "You can ask about products, prices, colours, "
-        "sizes or the cheapest product."
+        "sizes or your shopping cart."
     )
 
 
@@ -177,7 +455,6 @@ def answer_question(question):
 # =====================================
 
 HTML_PAGE = """
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -297,6 +574,22 @@ button:disabled {
     margin-top: 15px;
 }
 
+.cart-area {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f3f6fa;
+    border-radius: 8px;
+}
+
+.cart-area h2 {
+    color: #173b67;
+    font-size: 19px;
+}
+
+.cart-area p {
+    line-height: 1.5;
+}
+
 .status {
     text-align: center;
     color: #555;
@@ -330,6 +623,7 @@ button:disabled {
         padding: 18px;
         margin: 10px auto;
     }
+
 }
 
 </style>
@@ -380,6 +674,20 @@ Ask me questions about products on the test shop.
 
 </form>
 
+<div class="cart-area" aria-live="polite">
+
+    <h2>Shopping Cart</h2>
+
+    <p id="cart-display">
+        Your shopping cart is empty.
+    </p>
+
+    <button type="button" id="refresh-cart">
+        Refresh Cart
+    </button>
+
+</div>
+
 <div class="speech-area">
 
     <button
@@ -418,15 +726,16 @@ const speechToggle = document.getElementById("speech-toggle");
 
 const speechStatus = document.getElementById("speech-status");
 
+const cartDisplay = document.getElementById("cart-display");
 
-// =====================================
-// SPEECH SETTINGS
-// =====================================
+const refreshCartButton = document.getElementById("refresh-cart");
 
 let speechEnabled = false;
 
 
-// Turn speech on or off
+// =====================================
+// SPEECH SETTINGS
+// =====================================
 
 speechToggle.addEventListener("click", function() {
 
@@ -451,7 +760,8 @@ speechToggle.addEventListener("click", function() {
 
         window.speechSynthesis.cancel();
 
-        speechStatus.textContent = "Speech is currently off.";
+        speechStatus.textContent =
+            "Speech is currently off.";
 
     }
 
@@ -459,7 +769,7 @@ speechToggle.addEventListener("click", function() {
 
 
 // =====================================
-// READ AGENT RESPONSES
+// TEXT TO SPEECH
 // =====================================
 
 function speakText(message) {
@@ -520,6 +830,35 @@ function addMessage(message, sender) {
 
 
 // =====================================
+// REFRESH CART DISPLAY
+// =====================================
+
+async function refreshCart() {
+
+    try {
+
+        const response = await fetch("/cart");
+
+        const data = await response.json();
+
+        cartDisplay.textContent = data.summary;
+
+    } catch (error) {
+
+        cartDisplay.textContent =
+            "Unable to load your cart.";
+
+    }
+
+}
+
+refreshCartButton.addEventListener(
+    "click",
+    refreshCart
+);
+
+
+// =====================================
 // SEND MESSAGE TO PYTHON
 // =====================================
 
@@ -572,6 +911,8 @@ form.addEventListener("submit", async function(event) {
 
         speakText(data.answer);
 
+        await refreshCart();
+
     } catch (error) {
 
         addMessage(
@@ -587,12 +928,17 @@ form.addEventListener("submit", async function(event) {
 
 });
 
+
+// =====================================
+// LOAD CART WHEN WEBSITE OPENS
+// =====================================
+
+refreshCart();
+
 </script>
 
 </body>
-
 </html>
-
 """
 
 
@@ -626,6 +972,23 @@ def chat():
     })
 
 
+@app.route("/cart", methods=["GET"])
+def view_cart():
+
+    cart = get_cart()
+
+    total = sum(
+        item["price"] * item["quantity"]
+        for item in cart
+    )
+
+    return jsonify({
+        "cart": cart,
+        "total": total,
+        "summary": cart_summary()
+    })
+
+
 # =====================================
 # START APPLICATION
 # =====================================
@@ -633,5 +996,3 @@ def chat():
 if __name__ == "__main__":
 
     app.run(debug=True)
-
-
