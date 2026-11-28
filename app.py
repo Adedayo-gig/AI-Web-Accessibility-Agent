@@ -50,13 +50,11 @@ def cart_summary():
         return "Your shopping cart is empty."
 
     total = 0
-
     answer = "Your shopping cart contains: "
 
     for item in cart:
 
         subtotal = item["price"] * item["quantity"]
-
         total += subtotal
 
         size_text = (
@@ -88,9 +86,7 @@ def add_to_cart(product, requested_size=None):
         ):
 
             item["quantity"] += 1
-
             session["cart"] = cart
-
             session.modified = True
 
             return (
@@ -107,7 +103,6 @@ def add_to_cart(product, requested_size=None):
     })
 
     session["cart"] = cart
-
     session.modified = True
 
     size_text = (
@@ -131,9 +126,7 @@ def remove_from_cart(product_name):
         if product_name.lower() in item["name"].lower():
 
             cart.remove(item)
-
             session["cart"] = cart
-
             session.modified = True
 
             return (
@@ -152,7 +145,6 @@ def answer_question(question):
 
     question = question.lower().strip()
 
-    # Correct common typing mistakes
     corrections = {
         "sheo": "shoe",
         "shoo": "shoe",
@@ -165,6 +157,7 @@ def answer_question(question):
     }
 
     for wrong, correct in corrections.items():
+
         question = re.sub(
             r"\b" + wrong + r"\b",
             correct,
@@ -174,9 +167,7 @@ def answer_question(question):
     if not question:
         return "Please enter a request."
 
-    # ---------------------------------
     # CLEAR CART
-    # ---------------------------------
 
     if (
         "clear cart" in question
@@ -185,14 +176,11 @@ def answer_question(question):
     ):
 
         session["cart"] = []
-
         session.modified = True
 
         return "Your shopping cart has been cleared."
 
-    # ---------------------------------
     # REMOVE PRODUCT
-    # ---------------------------------
 
     if "remove" in question and "cart" in question:
 
@@ -207,9 +195,7 @@ def answer_question(question):
             "you want to remove."
         )
 
-    # ---------------------------------
     # VIEW CART
-    # ---------------------------------
 
     cart_words = [
         "show", "see", "view", "check",
@@ -223,9 +209,7 @@ def answer_question(question):
 
         return cart_summary()
 
-    # ---------------------------------
     # COUNT PRODUCTS
-    # ---------------------------------
 
     if (
         "how many" in question
@@ -237,9 +221,7 @@ def answer_question(question):
             f"products available."
         )
 
-    # ---------------------------------
-    # LIST ALL PRODUCTS
-    # ---------------------------------
+    # LIST PRODUCTS
 
     if (
         "list all" in question
@@ -258,14 +240,10 @@ def answer_question(question):
 
         return answer
 
-    # ---------------------------------
     # CHEAPEST PRODUCT
-    # ---------------------------------
 
     if any(word in question for word in [
-        "cheapest",
-        "lowest price",
-        "lowest cost"
+        "cheapest", "lowest price", "lowest cost"
     ]):
 
         cheapest = min(
@@ -279,9 +257,7 @@ def answer_question(question):
             f"priced at {cheapest['price']:,} naira."
         )
 
-    # ---------------------------------
     # PRODUCT SEARCH
-    # ---------------------------------
 
     product_keywords = [
         "shoe", "shoes", "black", "white",
@@ -294,26 +270,29 @@ def answer_question(question):
 
         matches = products.copy()
 
-        # Identify exact product type
         if "running" in question:
+
             matches = [
                 p for p in matches
                 if p["name"] == "Black Running Shoe"
             ]
 
         elif "leather" in question:
+
             matches = [
                 p for p in matches
                 if p["name"] == "Black Leather Shoe"
             ]
 
         elif "sports" in question:
+
             matches = [
                 p for p in matches
                 if p["name"] == "White Sports Shoe"
             ]
 
-        # Filter by colour
+        # COLOUR FILTER
+
         if "black" in question.split():
 
             matches = [
@@ -328,7 +307,8 @@ def answer_question(question):
                 if p["colour"] == "white"
             ]
 
-        # Filter by size
+        # SIZE FILTER
+
         size_match = re.search(
             r"\bsize\s*(\d{2})\b|\b(\d{2})\s*size\b",
             question
@@ -348,7 +328,8 @@ def answer_question(question):
                 if requested_size in p["sizes"]
             ]
 
-        # Filter by price
+        # PRICE FILTER
+
         price_match = re.search(
             r"(?:below|under|less than|up to|"
             r"not more than|max(?:imum)?(?: price)?|"
@@ -381,12 +362,12 @@ def answer_question(question):
                     if p["price"] == requested_price
                 ]
 
-        # Detect add-to-cart request
+        # ADD TO CART
+
         add_requested = (
             "add" in question and "cart" in question
         ) or "buy it" in question
 
-        # Return matching products
         if matches:
 
             if add_requested:
@@ -623,7 +604,6 @@ button:disabled {
         padding: 18px;
         margin: 10px auto;
     }
-
 }
 
 </style>
@@ -668,6 +648,14 @@ Ask me questions about products on the test shop.
         required
     >
 
+    <button
+        type="button"
+        id="mic-button"
+        aria-label="Start voice input"
+        aria-pressed="false">
+        🎤 Speak
+    </button>
+
     <button id="send-button" type="submit">
         Send
     </button>
@@ -694,9 +682,7 @@ Ask me questions about products on the test shop.
         type="button"
         id="speech-toggle"
         aria-pressed="false">
-
         Turn speech on
-
     </button>
 
 </div>
@@ -715,26 +701,20 @@ Ask me questions about products on the test shop.
 // =====================================
 
 const form = document.getElementById("chat-form");
-
 const input = document.getElementById("user-input");
-
 const chatBox = document.getElementById("chat-box");
-
 const sendButton = document.getElementById("send-button");
-
 const speechToggle = document.getElementById("speech-toggle");
-
 const speechStatus = document.getElementById("speech-status");
-
 const cartDisplay = document.getElementById("cart-display");
-
 const refreshCartButton = document.getElementById("refresh-cart");
+const micButton = document.getElementById("mic-button");
 
 let speechEnabled = false;
 
 
 // =====================================
-// SPEECH SETTINGS
+// TEXT TO SPEECH SETTINGS
 // =====================================
 
 speechToggle.addEventListener("click", function() {
@@ -753,7 +733,6 @@ speechToggle.addEventListener("click", function() {
     if (speechEnabled) {
 
         speechStatus.textContent = "Speech is on.";
-
         speakText("Speech is now enabled.");
 
     } else {
@@ -784,7 +763,6 @@ function speakText(message) {
             "Speech is not supported by this browser.";
 
         return;
-
     }
 
     window.speechSynthesis.cancel();
@@ -792,9 +770,7 @@ function speakText(message) {
     const speech = new SpeechSynthesisUtterance(message);
 
     speech.lang = "en-NG";
-
     speech.rate = 0.9;
-
     speech.pitch = 1;
 
     speech.onend = function() {
@@ -808,6 +784,162 @@ function speakText(message) {
     window.speechSynthesis.speak(speech);
 
 }
+
+
+// =====================================
+// SPEECH TO TEXT
+// =====================================
+
+// Check browser support
+
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+let recognition = null;
+let isListening = false;
+
+if (SpeechRecognition) {
+
+    recognition = new SpeechRecognition();
+
+    recognition.lang = "en-NG";
+
+    recognition.continuous = false;
+
+    recognition.interimResults = false;
+
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function() {
+
+        isListening = true;
+
+        micButton.textContent = "Listening...";
+
+        micButton.setAttribute(
+            "aria-pressed",
+            "true"
+        );
+
+        speechStatus.textContent =
+            "Listening. Please speak your request.";
+
+    };
+
+
+    recognition.onresult = function(event) {
+
+        const spokenText =
+            event.results[0][0].transcript;
+
+        input.value = spokenText;
+
+        speechStatus.textContent =
+            "Speech recognised: " + spokenText;
+
+        input.focus();
+
+    };
+
+
+    recognition.onerror = function(event) {
+
+        let message = "Voice recognition failed.";
+
+        if (event.error === "not-allowed") {
+
+            message =
+                "Microphone permission was denied. Please allow microphone access.";
+
+        } else if (event.error === "no-speech") {
+
+            message =
+                "No speech was detected. Please try again.";
+
+        } else if (event.error === "network") {
+
+            message =
+                "Network error. Check your internet connection and try again.";
+
+        } else if (event.error === "audio-capture") {
+
+            message =
+                "No working microphone was detected.";
+
+        } else if (event.error === "service-not-allowed") {
+
+            message =
+                "The browser speech recognition service is unavailable.";
+
+        }
+
+        speechStatus.textContent = message;
+
+    };
+
+
+    recognition.onend = function() {
+
+        isListening = false;
+
+        micButton.textContent = "🎤 Speak";
+
+        micButton.setAttribute(
+            "aria-pressed",
+            "false"
+        );
+
+    };
+
+} else {
+
+    micButton.disabled = true;
+
+    micButton.textContent =
+        "Voice input unavailable";
+
+    speechStatus.textContent =
+        "Your browser does not support speech recognition. Try Google Chrome.";
+
+}
+
+
+// =====================================
+// MICROPHONE BUTTON
+// =====================================
+
+micButton.addEventListener("click", function() {
+
+    if (!recognition) {
+
+        speechStatus.textContent =
+            "Speech recognition is not supported.";
+
+        return;
+
+    }
+
+    if (isListening) {
+
+        recognition.stop();
+
+        return;
+
+    }
+
+    try {
+
+        recognition.start();
+
+    } catch (error) {
+
+        speechStatus.textContent =
+            "Unable to start the microphone. Please try again.";
+
+    }
+
+});
 
 
 // =====================================
